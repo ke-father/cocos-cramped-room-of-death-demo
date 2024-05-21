@@ -5,6 +5,9 @@ import Singleton from "db://assets/Base/Singleton";
 import {TileManager} from "db://assets/Script/Tile/TileManager";
 import {PlayerManager} from "db://assets/Script/Player/PlayerManager";
 import {WoodenSkeletonManager} from "db://assets/Script/WoodenSkeleton/WoodenSkeletonManager";
+import {DoorManager} from "db://assets/Script/Door/DoorManager";
+import {EnemyManager} from "db://assets/Base/EnemyManager";
+import {BurstManager} from "db://assets/Script/Burst/BurstManager";
 
 export default class DataManager extends Singleton {
     static get Instance() {
@@ -23,14 +26,20 @@ export default class DataManager extends Singleton {
     levelIndex: number = 1
     // 玩家信息
     player: PlayerManager
+    // 门信息
+    door: DoorManager
     // 敌人群信息
-    enemies: Array<WoodenSkeletonManager>
+    enemies: Array<EnemyManager>
+    // 地裂
+    bursts: Array<BurstManager>
 
     // 清空数据
     reset () {
         this.mapInfo = []
         this.tileInfo = []
         this.player = null
+        this.door = null
+        this.bursts = []
         this.enemies = []
         this.mapRowCount = 0
         this.mapColumnCount = 0

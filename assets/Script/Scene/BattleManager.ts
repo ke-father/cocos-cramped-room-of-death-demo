@@ -6,9 +6,12 @@ import Levels, {ILevel} from "db://assets/Levels";
 import DataManager from "db://assets/Runtime/DataManager";
 import {TILE_HEIGHT, TILE_WIDTH} from "db://assets/Script/Tile/TileManager";
 import EventManager from "db://assets/Runtime/EventManager";
-import {EVENT_ENUM} from "db://assets/Enums";
+import {DIRECTION_ENUM, ENTITY_STATE_ENUM, ENTITY_TYPE_ENUM, EVENT_ENUM} from "db://assets/Enums";
 import {PlayerManager} from "db://assets/Script/Player/PlayerManager";
 import {WoodenSkeletonManager} from "db://assets/Script/WoodenSkeleton/WoodenSkeletonManager";
+import {DoorManager} from "db://assets/Script/Door/DoorManager";
+import {IronSkeletonManager} from "db://assets/Script/IronSkeleton/IronSkeletonManager";
+import {BurstManager} from "db://assets/Script/Burst/BurstManager";
 const { ccclass, property } = _decorator;
 
 @ccclass('BattleManager')
@@ -34,7 +37,7 @@ export class BattleManager extends Component {
     }
 
     // 初始化关卡
-    initLevel () {
+    async initLevel () {
         // 获取map信息
         const level = Levels[`level${DataManager.Instance.levelIndex}`]
         if (level) {
@@ -50,11 +53,15 @@ export class BattleManager extends Component {
             DataManager.Instance.mapColumnCount = this.level.mapInfo[0].length || 0
 
             // 渲染地图
-            this.generateTileMap()
+            await this.generateTileMap()
+            // 生成地裂地图
+            await this.generateBurst()
             // 渲染敌人
-            this.generateEnemies()
+            // await this.generateEnemies()
+            // 生成门
+            // await this.generateDoor()
             // 渲染人物
-            this.generatePlayer()
+            await this.generatePlayer()
         }
     }
 
@@ -104,7 +111,13 @@ export class BattleManager extends Component {
         // 添加渲染组件
         const playerManager = player.addComponent(PlayerManager)
         // 调用初始化
-        await playerManager.init()
+        await playerManager.init({
+            x: 2,
+            y: 8,
+            type: ENTITY_TYPE_ENUM.PLAYER,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
         // 储存玩家信息
         DataManager.Instance.player = playerManager
         // 需要在敌人生成后主动触发事件 检测
@@ -114,15 +127,99 @@ export class BattleManager extends Component {
     // 生成敌人
     async generateEnemies () {
         // 创建player节点
-        const enemy = createUINode()
+        const enemy1 = createUINode()
         // 将节点挂载到舞台上
-        enemy.setParent(this.stage)
+        enemy1.setParent(this.stage)
         // 添加渲染组件
-        const enemyManager = enemy.addComponent(WoodenSkeletonManager)
+        const enemyManager1 = enemy1.addComponent(WoodenSkeletonManager)
         // 调用初始化
-        await enemyManager.init()
+        await enemyManager1.init({
+            x: 7,
+            y: 7,
+            type: ENTITY_TYPE_ENUM.SKELETON_WOODEN,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
         // 储存敌人信息
-        DataManager.Instance.enemies.push(enemyManager)
+        DataManager.Instance.enemies.push(enemyManager1)
+
+        // 创建player节点
+        const enemy2 = createUINode()
+        // 将节点挂载到舞台上
+        enemy2.setParent(this.stage)
+        // 添加渲染组件
+        const enemyManager2 = enemy2.addComponent(IronSkeletonManager)
+        // 调用初始化
+        await enemyManager2.init({
+            x: 1,
+            y: 5,
+            type: ENTITY_TYPE_ENUM.SKELETON_IRON,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
+        // 储存敌人信息
+        DataManager.Instance.enemies.push(enemyManager2)
+    }
+
+    /**
+     * 生成门
+     */
+    async generateDoor () {
+        // 创建player节点
+        const Door = createUINode()
+        // 将节点挂载到舞台上
+        Door.setParent(this.stage)
+        // 添加渲染组件
+        const doorManager = Door.addComponent(DoorManager)
+        // 调用初始化
+        await doorManager.init({
+            x: 7,
+            y: 8,
+            type: ENTITY_TYPE_ENUM.DOOR,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
+        // 储存玩家信息
+        DataManager.Instance.door = doorManager
+    }
+
+    /**
+     * 生成地裂地图
+     */
+    async generateBurst () {
+        // 创建player节点
+        const burst1 = createUINode()
+        // 将节点挂载到舞台上
+        burst1.setParent(this.stage)
+        // 添加渲染组件
+        const burstManager1 = burst1.addComponent(BurstManager)
+        // 调用初始化
+        await burstManager1.init({
+            x: 2,
+            y: 6,
+            type: ENTITY_TYPE_ENUM.DOOR,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
+        // 储存玩家信息
+        DataManager.Instance.bursts.push(burstManager1)
+
+        // 创建player节点
+        const burst2 = createUINode()
+        // 将节点挂载到舞台上
+        burst2.setParent(this.stage)
+        // 添加渲染组件
+        const burstManager2 = burst2.addComponent(BurstManager)
+        // 调用初始化
+        await burstManager2.init({
+            x: 2,
+            y: 7,
+            type: ENTITY_TYPE_ENUM.DOOR,
+            direction: DIRECTION_ENUM.TOP,
+            state: ENTITY_STATE_ENUM.IDLE
+        })
+        // 储存玩家信息
+        DataManager.Instance.bursts.push(burstManager2)
     }
 
     // 设置适应位置

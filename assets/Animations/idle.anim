@@ -11,7 +11,7 @@
     "speed": 1,
     "wrapMode": 2,
     "enableTrsBlending": false,
-    "_duration": 1.75,
+    "_duration": 2.625,
     "_hash": 500763545,
     "_tracks": [
       {
@@ -61,76 +61,61 @@
   {
     "__type__": "cc.ObjectCurve",
     "_times": [
-      0,
-      0.125,
-      0.25,
-      0.375,
-      0.5,
-      0.625,
-      0.75,
-      0.875,
-      1,
-      1.125,
       1.25,
       1.375,
       1.5,
-      1.625
+      1.625,
+      1.75,
+      1.875,
+      2,
+      2.125,
+      2.25,
+      2.375,
+      2.5
     ],
     "_values": [
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@802aa",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@37c52",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@090f6",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@6d010",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@d6513",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@77266",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@4c5a9",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@2fb40",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@d5e97",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@52bf5",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@8d6f5",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@faf16",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@032a6",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@9325b",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@c00d5",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@5d01f",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@e8eba",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@77f37",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@6b6a0",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@025b8",
         "__expectedType__": "cc.SpriteFrame"
       },
       {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@21855",
-        "__expectedType__": "cc.SpriteFrame"
-      },
-      {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@a2aee",
-        "__expectedType__": "cc.SpriteFrame"
-      },
-      {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@ea3e5",
-        "__expectedType__": "cc.SpriteFrame"
-      },
-      {
-        "__uuid__": "90ea1211-e30e-4772-9369-ab7369f3429c@26491",
+        "__uuid__": "ea65ea39-46d2-43aa-abbb-ade1da899f80@1c8f4",
         "__expectedType__": "cc.SpriteFrame"
       }
     ]

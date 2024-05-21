@@ -1,9 +1,11 @@
 import {_decorator} from 'cc';
-import {CONTROLLER_ENUM, DIRECTION_ENUM, ENTITY_STATE_ENUM, ENTITY_TYPE_ENUM, EVENT_ENUM} from "db://assets/Enums";
+import {CONTROLLER_ENUM, DIRECTION_ENUM, ENTITY_STATE_ENUM, EVENT_ENUM} from "db://assets/Enums";
 import EventManager from "db://assets/Runtime/EventManager";
 import {PlayerStateMachine} from "db://assets/Script/Player/PlayerStateMachine";
 import {EntityManager} from "db://assets/Base/EntityManager";
 import DataManager from "db://assets/Runtime/DataManager";
+import {IEntity} from "db://assets/Levels";
+import {ExamineFeasibility, ExaminePathPlayer, ExaminePathWeapon} from "db://assets/Utils/ExaminePath";
 
 const {ccclass, property} = _decorator;
 
@@ -16,18 +18,12 @@ export class PlayerManager extends EntityManager {
     // 是否移动
     isMoving = true
 
-    async init() {
+    async init(params: IEntity) {
         // 挂载组件
         this.fsm = this.addComponent(PlayerStateMachine)
         await this.fsm.init()
 
-        await super.init({
-            x: 2,
-            y: 8,
-            type: ENTITY_TYPE_ENUM.PLAYER,
-            direction: DIRECTION_ENUM.TOP,
-            state: ENTITY_STATE_ENUM.IDLE
-        })
+        await super.init(params)
 
         this.targetX = this.x
         this.targetY = this.y
@@ -71,6 +67,7 @@ export class PlayerManager extends EntityManager {
      * 玩家死亡
      */
     onDie(type: ENTITY_STATE_ENUM) {
+        console.log(type)
         this.state = type
     }
 
@@ -81,12 +78,10 @@ export class PlayerManager extends EntityManager {
 
         // 检测是否会攻击
         const enemyId = this.willAttack(inputDirection)
-        console.log(enemyId)
         if (enemyId) {
             console.log('attack')
-            console.log(EventManager.Instance)
             EventManager.Instance.emit(EVENT_ENUM.ATTACK_ENEMY, enemyId)
-            console.log(EventManager.Instance)
+            EventManager.Instance.emit(EVENT_ENUM.DOOR_OPEN)
             return;
         }
 
@@ -164,7 +159,18 @@ export class PlayerManager extends EntityManager {
     willBlock(inputDirection: CONTROLLER_ENUM): boolean {
         const {targetX: x, targetY: y, direction} = this
         const {tileInfo} = DataManager.Instance
+        const {x: doorX, y: doorY, state: doorState} = DataManager.Instance.door || {
+            x: 0,
+            y: 0,
+            state: ENTITY_STATE_ENUM.IDLE
+        }
+        const enemies = DataManager.Instance.enemies.filter(enemy => enemy.state !== ENTITY_STATE_ENUM.DEATH)
+        const bursts = DataManager.Instance.bursts.filter(burst => burst.state !== ENTITY_STATE_ENUM.DEATH)
 
+        const playerRoundTIleInfo = ExaminePathPlayer(x, y, tileInfo)
+        const weaponRoundTileInfo = ExaminePathWeapon(x, y, tileInfo)
+
+        console.log(playerRoundTIleInfo, weaponRoundTileInfo)
 
         const playerTopNextY = y - 1
         const playerBottomNextY = y + 1
@@ -179,19 +185,80 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
-                    const weaponNextY = y - 2
+                    let state = ExamineFeasibility(
+                        {
+                            TOP: playerRoundTIleInfo.TOP
+                        },
+                        {
+                            TOP: weaponRoundTileInfo.TOP
+                        }
+                    )
 
-                    const playerTile = tileInfo[x][playerTopNextY]
-                    const weaponTile = tileInfo[x][weaponNextY]
-
-                    if (playerTile && playerTile.moveAble && (!weaponTile || weaponTile.moveAble)) {
-                    } else {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
+
+                    return false
+
+
+                    // const weaponNextY = y - 2
+                    //
+                    // const playerTile = tileInfo[x][playerTopNextY]
+                    // const weaponTile = tileInfo[x][weaponNextY]
+                    //
+                    // // 检测门的碰撞
+                    // if (
+                    //     (x === doorX && playerTopNextY === doorY) ||
+                    //     (x === doorX && weaponNextY === doorY) &&
+                    //     doorState !== ENTITY_STATE_ENUM.DEATH
+                    // ) {
+                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    //     return true
+                    // }
+                    //
+                    // // 检测敌人碰撞
+                    // if (enemies.filter(enemy => (x === enemy.x && playerTopNextY === enemy.y) || (x === enemy.x && weaponNextY === enemy.y)).length) {
+                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    //     return true
+                    // }
+                    //
+                    // // 判断地裂
+                    // if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y) && (!weaponTile || weaponTile.turnAble)).length) {
+                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    //     return false
+                    // }
+                    //
+                    // // 检测移动碰撞
+                    // if (playerTile && playerTile.moveAble && (!weaponTile || weaponTile.turnAble)) {
+                    // } else {
+                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    //     return true
+                    // }
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerTopNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (x === enemy.x && playerTopNextY === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
@@ -199,6 +266,35 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerTopNextY === doorY) ||
+                        (playerLeftNextX === doorX && playerTopNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy =>
+                        (playerLeftNextX === enemy.x && playerTopNextY === enemy.y) ||
+                        (x === enemy.x && playerTopNextY === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    for (let burst of bursts) {
+                        const {x: burstX, y:burstY } = burst
+                        console.log(x, burstX, playerTopNextY, burstY)
+                        console.log(tileInfo[playerLeftNextX][playerTopNextY], tileInfo[playerLeftNextX][playerTopNextY]?.turnAble)
+                        console.log((x === burstX && playerTopNextY === burstY) && (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))
+                        console.log((x === burstX && playerTopNextY === burstY), (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))
+                        if ((x === burstX && playerTopNextY === burstY) && (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble)) {
+                            return false
+                        }
+                    }
+
                     if (
                         (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) ||
                         (!tileInfo[playerLeftNextX][playerTopNextY] || !tileInfo[playerLeftNextX][playerTopNextY].moveAble)
@@ -209,6 +305,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerTopNextY === doorY) ||
+                        (playerRightNextX === doorX && playerTopNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerTopNextY === enemy.y) || (x === enemy.x && playerTopNextY === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y) && (playerRightNextX === burst.x && playerTopNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) ||
                         (!tileInfo[playerRightNextX][playerTopNextY] || !tileInfo[playerRightNextX][playerTopNextY].moveAble)
@@ -232,6 +350,28 @@ export class PlayerManager extends EntityManager {
                     const playerTile = tileInfo[x][playerBottomNextY]
                     const weaponTile = tileInfo[x][weaponNextY]
 
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerBottomNextY === doorY) ||
+                        (x === doorX && weaponNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (x === enemy.x && playerBottomNextY === enemy.y) || (x === enemy.x && weaponNextY === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (x === burst.x && weaponNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (playerTile && playerTile.moveAble && (!weaponTile || weaponTile.moveAble)) {
                     } else {
                         this.state = ENTITY_STATE_ENUM.BLOCKBACK
@@ -240,6 +380,27 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerBottomNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (x === enemy.x && playerBottomNextY === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) {
                         this.state = ENTITY_STATE_ENUM.BLOCKBACK
                         return true
@@ -247,6 +408,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerBottomNextY === doorY) ||
+                        (playerLeftNextX === doorX && playerBottomNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerBottomNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (playerLeftNextX === burst.x && playerBottomNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) ||
                         (!tileInfo[playerLeftNextX][playerBottomNextY] || !tileInfo[playerLeftNextX][playerBottomNextY].moveAble)
@@ -257,6 +440,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
+                    // 检测门的碰撞
+                    if (
+                        (x === doorX && playerBottomNextY === doorY) ||
+                        (playerRightNextX === doorX && playerBottomNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerBottomNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (playerRightNextX === burst.x && playerBottomNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) ||
                         (!tileInfo[playerRightNextX][playerBottomNextY] || !tileInfo[playerRightNextX][playerBottomNextY].moveAble)
@@ -275,6 +480,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
+                    // 检测门的碰撞
+                    if (
+                        (playerLeftNextX === doorX && y === doorY) ||
+                        (playerLeftNextX === doorX && playerBottomNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerBottomNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (playerLeftNextX === burst.x && playerBottomNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
                         (!tileInfo[playerLeftNextX][playerBottomNextY] || !tileInfo[playerLeftNextX][playerBottomNextY].moveAble)
@@ -285,6 +512,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
+                    // 检测门的碰撞
+                    if (
+                        (playerLeftNextX === doorX && y === doorY) ||
+                        (playerLeftNextX === doorX && playerTopNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerTopNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (playerLeftNextX === burst.x && playerTopNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
                         (!tileInfo[playerLeftNextX][playerTopNextY] || !tileInfo[playerLeftNextX][playerTopNextY].moveAble)
@@ -297,8 +546,30 @@ export class PlayerManager extends EntityManager {
                 if (direction === DIRECTION_ENUM.LEFT) {
                     const weaponNextX = x - 2
 
+                    // 检测门的碰撞
                     if (
-                        (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
+                        (playerLeftNextX === doorX && y === doorY) ||
+                        (weaponNextX === doorX && y === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y) || (weaponNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (weaponNextX === burst.x && y === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
+                    if (
+                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
                         (!tileInfo[weaponNextX][y] || !tileInfo[weaponNextX][y].moveAble)
                     ) {
                         this.state = ENTITY_STATE_ENUM.BLOCKLEFT
@@ -307,6 +578,27 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
+                    // 检测门的碰撞
+                    if (
+                        (playerRightNextX === doorX && y === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble)
                     ) {
@@ -323,6 +615,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
+                    // 检测门的碰撞
+                    if (
+                        (playerRightNextX === doorX && y === doorY) ||
+                        (playerRightNextX === doorX && playerBottomNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerBottomNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (playerRightNextX === burst.x && playerBottomNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
                         (!tileInfo[playerRightNextX][playerBottomNextY] || !tileInfo[playerRightNextX][playerBottomNextY].moveAble)
@@ -333,6 +647,28 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
+                    // 检测门的碰撞
+                    if (
+                        (playerRightNextX === doorX && y === doorY) ||
+                        (playerRightNextX === doorX && playerTopNextY === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerTopNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (playerRightNextX === burst.x && playerTopNextY === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
                         (!tileInfo[playerRightNextX][playerTopNextY] || !tileInfo[playerRightNextX][playerTopNextY].moveAble)
@@ -343,6 +679,26 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
+                    // 检测门的碰撞
+                    if (
+                        (playerLeftNextX === doorX && y === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
 
                     if (
                         (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble)
@@ -353,10 +709,33 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
-                    const weaponNextY = x + 2
+                    const weaponNextX = x + 2
+
+                    // 检测门的碰撞
+                    if (
+                        (playerRightNextX === doorX && y === doorY) ||
+                        (weaponNextX === doorX && y === doorY) &&
+                        doorState !== ENTITY_STATE_ENUM.DEATH
+                    ) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 检测敌人碰撞
+                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && y === enemy.y) || (weaponNextX === enemy.x && y === enemy.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return true
+                    }
+
+                    // 判断地裂
+                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (weaponNextX === burst.x && y === burst.y)).length) {
+                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                        return false
+                    }
+
                     if (
                         (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
-                        (!tileInfo[weaponNextY][y] || !tileInfo[weaponNextY][y].moveAble)
+                        (!tileInfo[weaponNextX][y] || !tileInfo[weaponNextX][y].moveAble)
                     ) {
                         this.state = ENTITY_STATE_ENUM.BLOCKRIGHT
                         return true
@@ -378,6 +757,29 @@ export class PlayerManager extends EntityManager {
                 } else if (direction === DIRECTION_ENUM.RIGHT) {
                     nextTurnLeftX = x + 1
                     nextTurnLeftY = y - 1
+                }
+
+                if (
+                    (x === doorX && nextTurnLeftY === doorY) ||
+                    (nextTurnLeftX === doorX && y === doorY) ||
+                    (nextTurnLeftX === doorX && nextTurnLeftY === doorY) &&
+                    doorState !== ENTITY_STATE_ENUM.DEATH
+                ) {
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    return true
+                }
+
+                // 检测敌人碰撞
+                if (enemies.filter(enemy => (x === enemy.x && nextTurnLeftY === enemy.y) || (nextTurnLeftX === enemy.x && y === enemy.y) || (nextTurnLeftX === enemy.x && nextTurnLeftY === enemy.y)).length) {
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    return true
+                }
+
+                // 判断地裂
+                if (bursts.filter(burst => ((!tileInfo[playerLeftNextX][y] || tileInfo[playerLeftNextX][y].turnAble) && (!tileInfo[playerLeftNextX][nextTurnLeftY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))).length) {
+                    console.log(!tileInfo[nextTurnLeftY][nextTurnLeftY])
+                    this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    return false
                 }
 
                 if (
@@ -405,6 +807,28 @@ export class PlayerManager extends EntityManager {
                 } else if (direction === DIRECTION_ENUM.RIGHT) {
                     nextTurnRightX = x + 1
                     nextTurnRightY = y + 1
+                }
+
+                if (
+                    (x === doorX && nextTurnRightY === doorY) ||
+                    (nextTurnRightX === doorX && y === doorY) ||
+                    (nextTurnRightX === doorX && nextTurnRightY === doorY) &&
+                    doorState !== ENTITY_STATE_ENUM.DEATH
+                ) {
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    return true
+                }
+
+                // 检测敌人碰撞
+                if (enemies.filter(enemy => (x === enemy.x && nextTurnRightY === enemy.y) || (nextTurnRightX === enemy.x && y === enemy.y) || (nextTurnRightX === enemy.x && nextTurnRightY === enemy.y)).length) {
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    return true
+                }
+
+                // 判断地裂
+                if (bursts.filter(burst => (nextTurnRightX === burst.x && y === burst.y) && (nextTurnRightX === burst.x && nextTurnRightY === burst.y)).length) {
+                    this.state = ENTITY_STATE_ENUM.BLOCKFRONT
+                    return false
                 }
 
                 if (

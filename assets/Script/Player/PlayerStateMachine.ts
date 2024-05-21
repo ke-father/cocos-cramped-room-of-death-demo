@@ -13,6 +13,7 @@ import BlockLeftStateMachine from "db://assets/Script/Player/BlockLeftStateMachi
 import BlockRightStateMachine from "db://assets/Script/Player/BlockRightStateMachine";
 import DeathSubStateMachine from "db://assets/Script/Player/DeathSubStateMachine";
 import AttackSubStateMachine from "db://assets/Script/Player/AttackSubStateMachine";
+import AirDeathSubStateMachine from "db://assets/Script/Player/AirDeathSubStateMachine";
 
 const { ccclass, property } = _decorator;
 
@@ -42,6 +43,7 @@ export class PlayerStateMachine extends StateMachine {
         this.params.set(PARAMS_NAME_ENUM.BLOCKTURNLEFT, getInitParamsTrigger())
         this.params.set(PARAMS_NAME_ENUM.BLOCKTURNRIGHT, getInitParamsTrigger())
         this.params.set(PARAMS_NAME_ENUM.DEATH, getInitParamsTrigger())
+        this.params.set(PARAMS_NAME_ENUM.AIRDEATH, getInitParamsTrigger())
         this.params.set(PARAMS_NAME_ENUM.ATTACK, getInitParamsTrigger())
     }
 
@@ -50,13 +52,14 @@ export class PlayerStateMachine extends StateMachine {
         this.stateMachines.set(PARAMS_NAME_ENUM.IDLE, new IdleSubStateMachine(this))
         this.stateMachines.set(PARAMS_NAME_ENUM.TURNLEFT, new TurnLeftSubStateMachine(this))
         this.stateMachines.set(PARAMS_NAME_ENUM.TURNRIGHT, new TurnRightStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKFRONT, new BlockFrontStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKBACK, new BlockBackStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKLEFT, new BlockLeftStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKRIGHT, new BlockRightStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKTURNLEFT, new BlockTurnLeftStateMachine(this))
-        // this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKTURNRIGHT, new BlockTurnRightStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKFRONT, new BlockFrontStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKBACK, new BlockBackStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKLEFT, new BlockLeftStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKRIGHT, new BlockRightStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKTURNLEFT, new BlockTurnLeftStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.BLOCKTURNRIGHT, new BlockTurnRightStateMachine(this))
         this.stateMachines.set(PARAMS_NAME_ENUM.DEATH, new DeathSubStateMachine(this))
+        this.stateMachines.set(PARAMS_NAME_ENUM.AIRDEATH, new AirDeathSubStateMachine(this))
         this.stateMachines.set(PARAMS_NAME_ENUM.ATTACK, new AttackSubStateMachine(this))
     }
 
@@ -85,11 +88,14 @@ export class PlayerStateMachine extends StateMachine {
             case this.stateMachines.get(PARAMS_NAME_ENUM.BLOCKRIGHT):
             case this.stateMachines.get(PARAMS_NAME_ENUM.IDLE):
             case this.stateMachines.get(PARAMS_NAME_ENUM.DEATH):
+            case this.stateMachines.get(PARAMS_NAME_ENUM.AIRDEATH):
             case this.stateMachines.get(PARAMS_NAME_ENUM.ATTACK):
                 if (this.params.get(PARAMS_NAME_ENUM.ATTACK).value) {
                     this.currentState = this.stateMachines.get(PARAMS_NAME_ENUM.ATTACK)
                 } else if (this.params.get(PARAMS_NAME_ENUM.DEATH).value) {
                     this.currentState = this.stateMachines.get(PARAMS_NAME_ENUM.DEATH)
+                } else if (this.params.get(PARAMS_NAME_ENUM.AIRDEATH).value) {
+                    this.currentState = this.stateMachines.get(PARAMS_NAME_ENUM.AIRDEATH)
                 } else if (this.params.get(PARAMS_NAME_ENUM.BLOCKBACK).value) {
                     this.currentState = this.stateMachines.get(PARAMS_NAME_ENUM.BLOCKBACK)
                 } else if (this.params.get(PARAMS_NAME_ENUM.BLOCKLEFT).value) {

@@ -68,6 +68,9 @@ export class EntityManager extends Component {
         // 设置人物坐标 人物占4个瓦片大小
         this.node.setPosition(this.x * TILE_WIDTH - TILE_WIDTH * 1.5, -this.y * TILE_HEIGHT + TILE_HEIGHT * 1.5)
     }
+
+    onDestroy () {
+    }
 }
 
 
