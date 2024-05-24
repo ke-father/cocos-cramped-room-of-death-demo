@@ -1,5 +1,5 @@
 import {_decorator, UITransform} from 'cc';
-import {ENTITY_STATE_ENUM, EVENT_ENUM} from "db://assets/Enums";
+import {ENTITY_STATE_ENUM, EVENT_ENUM, SHAKE_TYPE_ENUM} from "db://assets/Enums";
 import EventManager from "db://assets/Runtime/EventManager";
 import DataManager from "db://assets/Runtime/DataManager";
 import {IEntity} from "db://assets/Levels";
@@ -48,6 +48,8 @@ export class BurstManager extends EntityManager {
         } else if (this.state === ENTITY_STATE_ENUM.ATTACK) {
             // 设置死亡
             this.state = ENTITY_STATE_ENUM.DEATH
+            // 地裂死亡震动
+            EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, SHAKE_TYPE_ENUM.BOTTOM)
 
             // 如果此时玩家在瓦片上 通知玩家死亡
             if (this.x === playerX && this.y === playerY) {

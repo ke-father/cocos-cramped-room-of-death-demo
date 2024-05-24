@@ -21,7 +21,7 @@ export abstract class SubStateMachine {
 
     set currentState (newState) {
         this._currentState = newState
-        this._currentState.run()
+        this._currentState?.run()
     }
 
     abstract run (): void

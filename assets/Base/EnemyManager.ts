@@ -53,11 +53,9 @@ export class EnemyManager extends EntityManager {
      * 敌人死亡
      */
     onDie(id: string) {
-        console.log(id)
         if (this.state === ENTITY_STATE_ENUM.DEATH) return
 
         if (id === this.id) {
-            console.log(id)
             this.state = ENTITY_STATE_ENUM.DEATH
         }
     }

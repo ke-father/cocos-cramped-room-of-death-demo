@@ -1,6 +1,6 @@
 // 数据中心
 // @ts-ignore
-import {ITile} from "db://assets/Levels";
+import {ILevel, ITile} from "db://assets/Levels";
 import Singleton from "db://assets/Base/Singleton";
 import {TileManager} from "db://assets/Script/Tile/TileManager";
 import {PlayerManager} from "db://assets/Script/Player/PlayerManager";
@@ -8,6 +8,10 @@ import {WoodenSkeletonManager} from "db://assets/Script/WoodenSkeleton/WoodenSke
 import {DoorManager} from "db://assets/Script/Door/DoorManager";
 import {EnemyManager} from "db://assets/Base/EnemyManager";
 import {BurstManager} from "db://assets/Script/Burst/BurstManager";
+import {SpikesManager} from "db://assets/Script/Spikes/SpikesManager";
+import {SmokeManager} from "db://assets/Script/Smoke/SmokeManager";
+
+export type IRecord = Omit<ILevel, 'mapInfo'>
 
 export default class DataManager extends Singleton {
     static get Instance() {
@@ -32,6 +36,12 @@ export default class DataManager extends Singleton {
     enemies: Array<EnemyManager>
     // 地裂
     bursts: Array<BurstManager>
+    // 地刺陷阱
+    spikes: Array<SpikesManager>
+    // 烟雾
+    smokes: Array<SmokeManager>
+    // 记忆数据
+    records: IRecord[]
 
     // 清空数据
     reset () {
@@ -40,7 +50,10 @@ export default class DataManager extends Singleton {
         this.player = null
         this.door = null
         this.bursts = []
+        this.spikes = []
         this.enemies = []
+        this.smokes = []
+        this.records = []
         this.mapRowCount = 0
         this.mapColumnCount = 0
     }

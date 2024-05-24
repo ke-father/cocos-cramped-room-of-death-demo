@@ -3,7 +3,7 @@ import {TILE_HEIGHT, TILE_WIDTH} from "db://assets/Script/Tile/TileManager";
 import {
     DIRECTION_ENUM,
     DIRECTION_ORDER_ENUM,
-    ENTITY_STATE_ENUM, ENTITY_TYPE_ENUM,
+    ENTITY_STATE_ENUM, ENTITY_TYPE_ENUM, EVENT_ENUM,
     PARAMS_NAME_ENUM
 } from "db://assets/Enums";
 import {PlayerStateMachine} from "db://assets/Script/Player/PlayerStateMachine";
@@ -11,6 +11,7 @@ import {PlayerStateMachine} from "db://assets/Script/Player/PlayerStateMachine";
 import {IEntity} from "db://assets/Levels";
 import {StateMachine} from "db://assets/Base/StateMachine";
 import {randomUUID} from "db://assets/Utils";
+import EventManager from "db://assets/Runtime/EventManager";
 
 const { ccclass, property } = _decorator;
 
@@ -25,7 +26,7 @@ export class EntityManager extends Component {
     // 数据与UI分离
     private _direction: DIRECTION_ENUM
     private _state: ENTITY_STATE_ENUM
-    private type: ENTITY_TYPE_ENUM
+    type: ENTITY_TYPE_ENUM
 
     get direction () {
         return this._direction
@@ -33,7 +34,7 @@ export class EntityManager extends Component {
 
     set direction (newDirection) {
         this._direction = newDirection
-        this.fsm.setParams(PARAMS_NAME_ENUM.DIRECTION, DIRECTION_ORDER_ENUM[this._direction])
+        this.fsm && this.fsm.setParams(PARAMS_NAME_ENUM.DIRECTION, DIRECTION_ORDER_ENUM[this._direction])
     }
 
     get state () {
@@ -42,7 +43,7 @@ export class EntityManager extends Component {
 
     set state (newState) {
         this._state = newState
-        this.fsm.setParams(this._state, true)
+        this.fsm && this.fsm.setParams(this._state, true)
     }
 
     async init (params: IEntity) {
@@ -56,12 +57,12 @@ export class EntityManager extends Component {
         // 设置节点大小
         transform.setContentSize(TILE_WIDTH * 4, TILE_HEIGHT * 4)
 
-        this.x = params.x
-        this.y = params.y
-        this.type = params.type
+        this.x = params?.x
+        this.y = params?.y
+        this.type = params?.type
         // 数据与状态分离 设置初始方向为top 初始动画为idle
-        this.direction = params.direction
-        this.state = params.state
+        this.direction = params?.direction
+        this.state = params?.state
     }
 
     update () {
@@ -70,6 +71,10 @@ export class EntityManager extends Component {
     }
 
     onDestroy () {
+        this.node && this.node?.destroy()
+    }
+
+    reset () {
     }
 }
 

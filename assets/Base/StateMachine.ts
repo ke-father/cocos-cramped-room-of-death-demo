@@ -57,7 +57,7 @@ export abstract class StateMachine extends Component {
 
     set currentState (newState) {
         this._currentState = newState
-        this._currentState.run()
+        this._currentState?.run()
     }
 
     resetTrigger () {

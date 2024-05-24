@@ -1,6 +1,5 @@
-import {TILE_TYPE_ENUM} from "../Enums";
-// @ts-ignore
-import {ILevel, ITile} from "db://assets/levels/index";
+import { TILE_TYPE_ENUM, DIRECTION_ENUM, ENTITY_TYPE_ENUM, ENTITY_STATE_ENUM } from 'db://assets/Enums';
+import { IEntity, ILevel, ISpikes } from 'db://assets/Levels';
 
 const mapInfo = [
     [
@@ -38,7 +37,7 @@ const mapInfo = [
         },
         {
             src: 13,
-            type: TILE_TYPE_ENUM.WALL_LEFT_TOP,
+            type: TILE_TYPE_ENUM.WALL_LEFT_BOTTOM,
         },
         {
             src: 18,
@@ -113,12 +112,12 @@ const mapInfo = [
             type: TILE_TYPE_ENUM.FLOOR,
         },
         {
-            src: null,
-            type: null,
+            src: 1,
+            type: TILE_TYPE_ENUM.FLOOR,
         },
         {
-            src: null,
-            type: null,
+            src: 1,
+            type: TILE_TYPE_ENUM.FLOOR,
         },
         {
             src: 1,
@@ -425,10 +424,43 @@ const mapInfo = [
     ],
 ];
 
+const player: IEntity = {
+    x: 2,
+    y: 8,
+    direction: DIRECTION_ENUM.TOP,
+    state: ENTITY_STATE_ENUM.IDLE,
+    type: ENTITY_TYPE_ENUM.PLAYER,
+};
+
+const enemies: Array<IEntity> = [
+    {
+        x: 7,
+        y: 6,
+        direction: DIRECTION_ENUM.TOP,
+        state: ENTITY_STATE_ENUM.IDLE,
+        type: ENTITY_TYPE_ENUM.SKELETON_WOODEN,
+    },
+];
+
+const spikes: Array<ISpikes> = [];
+
+const bursts: Array<IEntity> = [];
+
+const door: IEntity = {
+    x: 7,
+    y: 8,
+    direction: DIRECTION_ENUM.BOTTOM,
+    state: ENTITY_STATE_ENUM.IDLE,
+    type: ENTITY_TYPE_ENUM.DOOR,
+};
+
 const level: ILevel = {
-    mapInfo
-}
+    mapInfo,
+    player,
+    enemies,
+    spikes,
+    bursts,
+    door,
+};
 
-export default level
-
-
+export default level;

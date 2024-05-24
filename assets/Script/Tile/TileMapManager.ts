@@ -11,6 +11,7 @@ export class TileMapManager extends Component {
      * 生成瓦片
      */
     async init () {
+        DataManager.Instance.tileInfo = []
         // 获取map信息
         const { mapInfo } = DataManager.Instance
         // 初始化瓦片信息

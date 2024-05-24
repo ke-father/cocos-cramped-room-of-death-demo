@@ -1,5 +1,5 @@
 import {_decorator} from 'cc';
-import {CONTROLLER_ENUM, DIRECTION_ENUM, ENTITY_STATE_ENUM, EVENT_ENUM} from "db://assets/Enums";
+import {CONTROLLER_ENUM, DIRECTION_ENUM, ENTITY_STATE_ENUM, EVENT_ENUM, SHAKE_TYPE_ENUM} from "db://assets/Enums";
 import EventManager from "db://assets/Runtime/EventManager";
 import {PlayerStateMachine} from "db://assets/Script/Player/PlayerStateMachine";
 import {EntityManager} from "db://assets/Base/EntityManager";
@@ -32,6 +32,14 @@ export class PlayerManager extends EntityManager {
         EventManager.Instance.on(EVENT_ENUM.PLAYER_CTRL, this.inputMove, this)
         // 绑定玩家死亡
         EventManager.Instance.on(EVENT_ENUM.ATTACK_PLAYER, this.onDie, this)
+    }
+
+    onDestroy() {
+        super.onDestroy();
+        // 绑定操作事件
+        EventManager.Instance.off(EVENT_ENUM.PLAYER_CTRL, this.inputMove)
+        // 绑定玩家死亡
+        EventManager.Instance.off(EVENT_ENUM.ATTACK_PLAYER, this.onDie)
     }
 
     update() {
@@ -67,8 +75,11 @@ export class PlayerManager extends EntityManager {
      * 玩家死亡
      */
     onDie(type: ENTITY_STATE_ENUM) {
-        console.log(type)
         this.state = type
+    }
+
+    onAttackShake (type: SHAKE_TYPE_ENUM) {
+        EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, type)
     }
 
     inputMove(inputDirection: CONTROLLER_ENUM) {
@@ -79,15 +90,41 @@ export class PlayerManager extends EntityManager {
         // 检测是否会攻击
         const enemyId = this.willAttack(inputDirection)
         if (enemyId) {
-            console.log('attack')
+            EventManager.Instance.emit(EVENT_ENUM.RECORD_STEP)
+            this.state = ENTITY_STATE_ENUM.ATTACK
             EventManager.Instance.emit(EVENT_ENUM.ATTACK_ENEMY, enemyId)
             EventManager.Instance.emit(EVENT_ENUM.DOOR_OPEN)
+            EventManager.Instance.emit(EVENT_ENUM.PLAYER_MOVE_END)
             return;
         }
 
         // 检测是否可移动
         if (this.willBlock(inputDirection)) {
-            console.log('block')
+            switch (inputDirection) {
+                case CONTROLLER_ENUM.LEFT:
+                case CONTROLLER_ENUM.TOP:
+                case CONTROLLER_ENUM.BOTTOM:
+                case CONTROLLER_ENUM.RIGHT:
+                    EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, inputDirection)
+                    break
+                case CONTROLLER_ENUM.TURNLEFT:
+                case CONTROLLER_ENUM.TURNRIGHT:
+                    // 判断朝向
+                    switch (this.direction) {
+                        case DIRECTION_ENUM.TOP:
+                            EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, inputDirection === CONTROLLER_ENUM.TURNLEFT ? SHAKE_TYPE_ENUM.LEFT : SHAKE_TYPE_ENUM.RIGHT)
+                            break
+                        case DIRECTION_ENUM.RIGHT:
+                            EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, inputDirection === CONTROLLER_ENUM.TURNLEFT ? SHAKE_TYPE_ENUM.TOP : SHAKE_TYPE_ENUM.BOTTOM)
+                            break
+                        case DIRECTION_ENUM.LEFT:
+                            EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, inputDirection === CONTROLLER_ENUM.TURNLEFT ? SHAKE_TYPE_ENUM.BOTTOM : SHAKE_TYPE_ENUM.TOP)
+                            break
+                        case DIRECTION_ENUM.BOTTOM:
+                            EventManager.Instance.emit(EVENT_ENUM.SCREEN_SHAKE, inputDirection === CONTROLLER_ENUM.TURNLEFT ? SHAKE_TYPE_ENUM.RIGHT : SHAKE_TYPE_ENUM.LEFT)
+                            break
+                    }
+            }
             return
         }
 
@@ -99,7 +136,9 @@ export class PlayerManager extends EntityManager {
      * @param inputDirection
      */
     move(inputDirection: CONTROLLER_ENUM) {
+        EventManager.Instance.emit(EVENT_ENUM.RECORD_STEP)
         this.isMoving = true
+        this.shouSmoke(inputDirection)
         switch (inputDirection) {
             case CONTROLLER_ENUM.TOP:
                 this.targetY -= 1
@@ -128,6 +167,13 @@ export class PlayerManager extends EntityManager {
                 this.state = ENTITY_STATE_ENUM.TURNRIGHT
                 // 添加事件触发
                 EventManager.Instance.emit(EVENT_ENUM.PLAYER_MOVE_END)
+        }
+    }
+
+    shouSmoke (inputDirection: CONTROLLER_ENUM) {
+        // @ts-ignore
+        if ([CONTROLLER_ENUM.TOP, CONTROLLER_ENUM.LEFT, CONTROLLER_ENUM.RIGHT, CONTROLLER_ENUM.BOTTOM].includes(inputDirection)) {
+            EventManager.Instance.emit(EVENT_ENUM.SHOW_SMOKE, this.x, this.y, inputDirection)
         }
     }
 
@@ -170,8 +216,6 @@ export class PlayerManager extends EntityManager {
         const playerRoundTIleInfo = ExaminePathPlayer(x, y, tileInfo)
         const weaponRoundTileInfo = ExaminePathWeapon(x, y, tileInfo)
 
-        console.log(playerRoundTIleInfo, weaponRoundTileInfo)
-
         const playerTopNextY = y - 1
         const playerBottomNextY = y + 1
         const playerRightNextX = x + 1
@@ -200,140 +244,57 @@ export class PlayerManager extends EntityManager {
                     }
 
                     return false
-
-
-                    // const weaponNextY = y - 2
-                    //
-                    // const playerTile = tileInfo[x][playerTopNextY]
-                    // const weaponTile = tileInfo[x][weaponNextY]
-                    //
-                    // // 检测门的碰撞
-                    // if (
-                    //     (x === doorX && playerTopNextY === doorY) ||
-                    //     (x === doorX && weaponNextY === doorY) &&
-                    //     doorState !== ENTITY_STATE_ENUM.DEATH
-                    // ) {
-                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    //     return true
-                    // }
-                    //
-                    // // 检测敌人碰撞
-                    // if (enemies.filter(enemy => (x === enemy.x && playerTopNextY === enemy.y) || (x === enemy.x && weaponNextY === enemy.y)).length) {
-                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    //     return true
-                    // }
-                    //
-                    // // 判断地裂
-                    // if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y) && (!weaponTile || weaponTile.turnAble)).length) {
-                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    //     return false
-                    // }
-                    //
-                    // // 检测移动碰撞
-                    // if (playerTile && playerTile.moveAble && (!weaponTile || weaponTile.turnAble)) {
-                    // } else {
-                    //     this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    //     return true
-                    // }
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerTopNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            TOP: playerRoundTIleInfo.TOP
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (x === enemy.x && playerTopNextY === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerTopNextY === doorY) ||
-                        (playerLeftNextX === doorX && playerTopNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy =>
-                        (playerLeftNextX === enemy.x && playerTopNextY === enemy.y) ||
-                        (x === enemy.x && playerTopNextY === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    for (let burst of bursts) {
-                        const {x: burstX, y:burstY } = burst
-                        console.log(x, burstX, playerTopNextY, burstY)
-                        console.log(tileInfo[playerLeftNextX][playerTopNextY], tileInfo[playerLeftNextX][playerTopNextY]?.turnAble)
-                        console.log((x === burstX && playerTopNextY === burstY) && (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))
-                        console.log((x === burstX && playerTopNextY === burstY), (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))
-                        if ((x === burstX && playerTopNextY === burstY) && (!tileInfo[playerLeftNextX][playerTopNextY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble)) {
-                            return false
+                    let state = ExamineFeasibility(
+                        {
+                            TOP: playerRoundTIleInfo.TOP,
+                        },
+                        {
+                            LEFT_TOP: playerRoundTIleInfo.LEFT_TOP
                         }
-                    }
+                    )
 
-                    if (
-                        (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) ||
-                        (!tileInfo[playerLeftNextX][playerTopNextY] || !tileInfo[playerLeftNextX][playerTopNextY].moveAble)
-                    ) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
+
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerTopNextY === doorY) ||
-                        (playerRightNextX === doorX && playerTopNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            TOP: playerRoundTIleInfo.TOP
+                        },
+                        {
+                            RIGHT_TOP: playerRoundTIleInfo.RIGHT_TOP,
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerTopNextY === enemy.y) || (x === enemy.x && playerTopNextY === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerTopNextY === burst.y) && (playerRightNextX === burst.x && playerTopNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[x][playerTopNextY] || !tileInfo[x][playerTopNextY].moveAble) ||
-                        (!tileInfo[playerRightNextX][playerTopNextY] || !tileInfo[playerRightNextX][playerTopNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
+                    return false
                 }
 
                 break
@@ -345,128 +306,64 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
-                    const weaponNextY = y + 2
+                    let state = ExamineFeasibility(
+                        {
+                            BOTTOM: playerRoundTIleInfo.BOTTOM
+                        },
+                        {
+                            BOTTOM: weaponRoundTileInfo.BOTTOM
+                        }
+                    )
 
-                    const playerTile = tileInfo[x][playerBottomNextY]
-                    const weaponTile = tileInfo[x][weaponNextY]
-
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerBottomNextY === doorY) ||
-                        (x === doorX && weaponNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (x === enemy.x && playerBottomNextY === enemy.y) || (x === enemy.x && weaponNextY === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (x === burst.x && weaponNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (playerTile && playerTile.moveAble && (!weaponTile || weaponTile.moveAble)) {
-                    } else {
-                        this.state = ENTITY_STATE_ENUM.BLOCKBACK
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerBottomNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
+                    let state = ExamineFeasibility(
+                        {
+                            BOTTOM: playerRoundTIleInfo.BOTTOM
+                        }
+                    )
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (x === enemy.x && playerBottomNextY === enemy.y)).length) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKBACK
                         return true
                     }
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerBottomNextY === doorY) ||
-                        (playerLeftNextX === doorX && playerBottomNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
+                    let state = ExamineFeasibility(
+                        {
+                            BOTTOM: playerRoundTIleInfo.BOTTOM
+                        },
+                        {
+                            LEFT_BOTTOM: playerRoundTIleInfo.LEFT_BOTTOM,
+                        }
+                    )
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerBottomNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (playerLeftNextX === burst.x && playerBottomNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) ||
-                        (!tileInfo[playerLeftNextX][playerBottomNextY] || !tileInfo[playerLeftNextX][playerBottomNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKBACK
                         return true
                     }
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
-                    // 检测门的碰撞
-                    if (
-                        (x === doorX && playerBottomNextY === doorY) ||
-                        (playerRightNextX === doorX && playerBottomNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
+                    let state = ExamineFeasibility(
+                        {
+                            BOTTOM: playerRoundTIleInfo.BOTTOM
+                        },
+                        {
+                            RIGHT_BOTTOM: playerRoundTIleInfo.RIGHT_BOTTOM,
+                        }
+                    )
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerBottomNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (x === burst.x && playerBottomNextY === burst.y) && (playerRightNextX === burst.x && playerBottomNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[x][playerBottomNextY] || !tileInfo[x][playerBottomNextY].moveAble) ||
-                        (!tileInfo[playerRightNextX][playerBottomNextY] || !tileInfo[playerRightNextX][playerBottomNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKBACK
                         return true
                     }
                 }
@@ -480,131 +377,72 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
-                    // 检测门的碰撞
-                    if (
-                        (playerLeftNextX === doorX && y === doorY) ||
-                        (playerLeftNextX === doorX && playerBottomNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            LEFT: playerRoundTIleInfo.LEFT
+                        },
+                        {
+                            LEFT_BOTTOM: playerRoundTIleInfo.LEFT_BOTTOM
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerBottomNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (playerLeftNextX === burst.x && playerBottomNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
-                        (!tileInfo[playerLeftNextX][playerBottomNextY] || !tileInfo[playerLeftNextX][playerBottomNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKLEFT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
-                    // 检测门的碰撞
-                    if (
-                        (playerLeftNextX === doorX && y === doorY) ||
-                        (playerLeftNextX === doorX && playerTopNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            LEFT: playerRoundTIleInfo.LEFT
+                        },
+                        {
+                            LEFT_TOP: playerRoundTIleInfo.LEFT_TOP
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && playerTopNextY === enemy.y) || (playerLeftNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (playerLeftNextX === burst.x && playerTopNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
-                        (!tileInfo[playerLeftNextX][playerTopNextY] || !tileInfo[playerLeftNextX][playerTopNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKLEFT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
-                    const weaponNextX = x - 2
+                    let state = ExamineFeasibility(
+                        {
+                            LEFT: playerRoundTIleInfo.LEFT
+                        },
+                        {
+                            LEFT: weaponRoundTileInfo.LEFT
+                        }
+                    )
 
-                    // 检测门的碰撞
-                    if (
-                        (playerLeftNextX === doorX && y === doorY) ||
-                        (weaponNextX === doorX && y === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y) || (weaponNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y) && (weaponNextX === burst.x && y === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble) ||
-                        (!tileInfo[weaponNextX][y] || !tileInfo[weaponNextX][y].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKLEFT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
-                    // 检测门的碰撞
-                    if (
-                        (playerRightNextX === doorX && y === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            LEFT: playerRoundTIleInfo.LEFT
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerLeftNextX === burst.x && y === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKLEFT
-                        return true
-                    }
+                    return false
                 }
                 break
             case CONTROLLER_ENUM.RIGHT:
@@ -615,131 +453,73 @@ export class PlayerManager extends EntityManager {
                 }
 
                 if (direction === DIRECTION_ENUM.BOTTOM) {
-                    // 检测门的碰撞
-                    if (
-                        (playerRightNextX === doorX && y === doorY) ||
-                        (playerRightNextX === doorX && playerBottomNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            RIGHT: playerRoundTIleInfo.RIGHT
+                        },
+                        {
+
+                            RIGHT_BOTTOM: playerRoundTIleInfo.RIGHT_BOTTOM
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerBottomNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (playerRightNextX === burst.x && playerBottomNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
-                        (!tileInfo[playerRightNextX][playerBottomNextY] || !tileInfo[playerRightNextX][playerBottomNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKRIGHT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.TOP) {
-                    // 检测门的碰撞
-                    if (
-                        (playerRightNextX === doorX && y === doorY) ||
-                        (playerRightNextX === doorX && playerTopNextY === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            RIGHT: playerRoundTIleInfo.RIGHT
+                        },
+                        {
+                            RIGHT_TOP: playerRoundTIleInfo.RIGHT_TOP
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && playerTopNextY === enemy.y) || (playerRightNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (playerRightNextX === burst.x && playerTopNextY === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
-                        (!tileInfo[playerRightNextX][playerTopNextY] || !tileInfo[playerRightNextX][playerTopNextY].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKRIGHT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.LEFT) {
-                    // 检测门的碰撞
-                    if (
-                        (playerLeftNextX === doorX && y === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    let state = ExamineFeasibility(
+                        {
+                            RIGHT: playerRoundTIleInfo.RIGHT
+                        }
+                    )
+
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerLeftNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerLeftNextX][y] || !tileInfo[playerLeftNextX][y].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKRIGHT
-                        return true
-                    }
+                    return false
                 }
 
                 if (direction === DIRECTION_ENUM.RIGHT) {
-                    const weaponNextX = x + 2
+                    let state = ExamineFeasibility(
+                        {
+                            RIGHT: playerRoundTIleInfo.RIGHT
+                        },
+                        {
+                            RIGHT: weaponRoundTileInfo.RIGHT
+                        }
+                    )
 
-                    // 检测门的碰撞
-                    if (
-                        (playerRightNextX === doorX && y === doorY) ||
-                        (weaponNextX === doorX && y === doorY) &&
-                        doorState !== ENTITY_STATE_ENUM.DEATH
-                    ) {
+                    if (!state) {
                         this.state = ENTITY_STATE_ENUM.BLOCKFRONT
                         return true
                     }
 
-                    // 检测敌人碰撞
-                    if (enemies.filter(enemy => (playerRightNextX === enemy.x && y === enemy.y) || (weaponNextX === enemy.x && y === enemy.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return true
-                    }
-
-                    // 判断地裂
-                    if (bursts.filter(burst => (playerRightNextX === burst.x && y === burst.y) && (weaponNextX === burst.x && y === burst.y)).length) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                        return false
-                    }
-
-                    if (
-                        (!tileInfo[playerRightNextX][y] || !tileInfo[playerRightNextX][y].moveAble) ||
-                        (!tileInfo[weaponNextX][y] || !tileInfo[weaponNextX][y].moveAble)
-                    ) {
-                        this.state = ENTITY_STATE_ENUM.BLOCKRIGHT
-                        return true
-                    }
+                    return false
                 }
                 break
             case CONTROLLER_ENUM.TURNLEFT:
@@ -775,17 +555,9 @@ export class PlayerManager extends EntityManager {
                     return true
                 }
 
-                // 判断地裂
-                if (bursts.filter(burst => ((!tileInfo[playerLeftNextX][y] || tileInfo[playerLeftNextX][y].turnAble) && (!tileInfo[playerLeftNextX][nextTurnLeftY] || tileInfo[playerLeftNextX][playerTopNextY]?.turnAble))).length) {
-                    console.log(!tileInfo[nextTurnLeftY][nextTurnLeftY])
-                    this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    return false
-                }
-
                 if (
-                    (!tileInfo[x][nextTurnLeftY] || !tileInfo[x][nextTurnLeftY].turnAble) ||
-                    (!tileInfo[nextTurnLeftX][y] || !tileInfo[nextTurnLeftX][y].turnAble) ||
-                    (!tileInfo[nextTurnLeftX][nextTurnLeftY] || !tileInfo[nextTurnLeftX][nextTurnLeftY].turnAble)
+                    (tileInfo[nextTurnLeftX][y] && !tileInfo[nextTurnLeftX][y].turnAble) ||
+                    (tileInfo[nextTurnLeftX][nextTurnLeftY] && !tileInfo[nextTurnLeftX][nextTurnLeftY].turnAble)
                 ) {
                     this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
                     return true
@@ -815,26 +587,20 @@ export class PlayerManager extends EntityManager {
                     (nextTurnRightX === doorX && nextTurnRightY === doorY) &&
                     doorState !== ENTITY_STATE_ENUM.DEATH
                 ) {
-                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNRIGHT
                     return true
                 }
 
                 // 检测敌人碰撞
                 if (enemies.filter(enemy => (x === enemy.x && nextTurnRightY === enemy.y) || (nextTurnRightX === enemy.x && y === enemy.y) || (nextTurnRightX === enemy.x && nextTurnRightY === enemy.y)).length) {
-                    this.state = ENTITY_STATE_ENUM.BLOCKTURNLEFT
+                    this.state = ENTITY_STATE_ENUM.BLOCKTURNRIGHT
                     return true
                 }
 
-                // 判断地裂
-                if (bursts.filter(burst => (nextTurnRightX === burst.x && y === burst.y) && (nextTurnRightX === burst.x && nextTurnRightY === burst.y)).length) {
-                    this.state = ENTITY_STATE_ENUM.BLOCKFRONT
-                    return false
-                }
-
                 if (
-                    (!tileInfo[x][nextTurnRightY] || !tileInfo[x][nextTurnRightY].turnAble) ||
-                    (!tileInfo[nextTurnRightX][y] || !tileInfo[nextTurnRightX][y].turnAble) ||
-                    (!tileInfo[nextTurnRightX][nextTurnRightY] || !tileInfo[nextTurnRightX][nextTurnRightY].turnAble)
+                    (tileInfo[x][nextTurnRightY] && !tileInfo[x][nextTurnRightY].turnAble) ||
+                    (tileInfo[nextTurnRightX][y] && !tileInfo[nextTurnRightX][y].turnAble) ||
+                    (tileInfo[nextTurnRightX][nextTurnRightY] && !tileInfo[nextTurnRightX][nextTurnRightY].turnAble)
                 ) {
                     this.state = ENTITY_STATE_ENUM.BLOCKTURNRIGHT
                     return true
@@ -862,8 +628,22 @@ export class PlayerManager extends EntityManager {
                     }
                     break
                 case CONTROLLER_ENUM.BOTTOM:
+                    if (this.direction === DIRECTION_ENUM.BOTTOM && this.x === enemyX && this.y + 2 === enemyY) {
+                        this.state = ENTITY_STATE_ENUM.ATTACK
+                        returnEnemyId = enemyId
+                    }
+                    break
                 case CONTROLLER_ENUM.LEFT:
+                    if (this.direction === DIRECTION_ENUM.LEFT && this.x - 2 === enemyX && this.y === enemyY) {
+                        this.state = ENTITY_STATE_ENUM.ATTACK
+                        returnEnemyId = enemyId
+                    }
+                    break
                 case CONTROLLER_ENUM.RIGHT:
+                    if (this.direction === DIRECTION_ENUM.RIGHT && this.x + 2 === enemyX && this.y === enemyY) {
+                        this.state = ENTITY_STATE_ENUM.ATTACK
+                        returnEnemyId = enemyId
+                    }
             }
         })
 

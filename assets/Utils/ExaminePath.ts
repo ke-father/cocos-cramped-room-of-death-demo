@@ -15,14 +15,15 @@ type IRoundTile = {
  * @constructor
  */
 export function ExaminePathPlayer (x: number, y: number, tileInfo: TileManager[][]) {
+    const { mapRowCount, mapColumnCount } = DataManager.Instance
     // 玩家向上
-    const playerTopNextY = y - 1
+    const playerTopNextY = y - 1 < 0 ? 0 : y - 1
     // 玩家向下
-    const playerBottomNextY = y + 1
+    const playerBottomNextY = y + 1 > mapColumnCount - 1 ? mapColumnCount : y + 1
     // 玩家向右
-    const playerRightNextX = x + 1
+    const playerRightNextX = x + 1 > mapRowCount - 1 ? mapRowCount : x + 1
     // 玩家向左
-    const playerLeftNextX = x - 1
+    const playerLeftNextX = x - 1 < 0 ? 0 : x - 1
 
     let roundTileInfo: IRoundTile = {}
 
@@ -38,56 +39,56 @@ export function ExaminePathPlayer (x: number, y: number, tileInfo: TileManager[]
                 examineTile = {
                     x: playerLeftNextX,
                     y: playerTopNextY,
-                    ...tileInfo[playerLeftNextX][playerTopNextY]
+                    ...tileInfo && tileInfo[playerLeftNextX][playerTopNextY]
                 }
                 break
             case ROUND_TILE_INFO.TOP:
                 examineTile = {
                     x,
                     y: playerTopNextY,
-                    ...tileInfo[x][playerTopNextY]
+                    ...tileInfo && tileInfo[x][playerTopNextY]
                 }
                 break
             case ROUND_TILE_INFO.RIGHT_TOP:
                 examineTile = {
                     x: playerRightNextX,
                     y: playerTopNextY,
-                    ...tileInfo[playerRightNextX][playerTopNextY]
+                    ...tileInfo && tileInfo[playerRightNextX][playerTopNextY]
                 }
                 break
             case ROUND_TILE_INFO.LEFT:
                 examineTile = {
                     x: playerLeftNextX,
                     y,
-                    ...tileInfo[playerLeftNextX][y]
+                    ...tileInfo && tileInfo[playerLeftNextX][y]
                 }
                 break
             case ROUND_TILE_INFO.RIGHT:
                 examineTile = {
                     x: playerRightNextX,
                     y,
-                    ...tileInfo[playerRightNextX][y]
+                    ...tileInfo && tileInfo[playerRightNextX][y]
                 }
                 break
             case ROUND_TILE_INFO.LEFT_BOTTOM:
                 examineTile = {
                     x: playerLeftNextX,
                     y: playerBottomNextY,
-                    ...tileInfo[playerLeftNextX][playerBottomNextY]
+                    ...tileInfo && tileInfo[playerLeftNextX][playerBottomNextY]
                 }
                 break
             case ROUND_TILE_INFO.BOTTOM:
                 examineTile = {
                     x,
                     y: playerBottomNextY,
-                    ...tileInfo[x][playerBottomNextY]
+                    ...tileInfo && tileInfo[x][playerBottomNextY]
                 }
                 break
             case ROUND_TILE_INFO.RIGHT_BOTTOM:
                 examineTile = {
                     x: playerRightNextX,
                     y: playerBottomNextY,
-                    ...tileInfo[playerRightNextX][playerBottomNextY]
+                    ...tileInfo && tileInfo[playerRightNextX][playerBottomNextY]
                 }
                 break
         }
@@ -111,16 +112,19 @@ export function ExaminePathPlayer (x: number, y: number, tileInfo: TileManager[]
  * @constructor
  */
 export function ExaminePathWeapon (x: number, y: number, tileInfo: TileManager[][]) {
+    const { mapRowCount, mapColumnCount } = DataManager.Instance
     // 玩家向上
-    const weaponTopNextY = y - 2
+    const weaponTopNextY = y - 2 < 0 ? 0 : y - 2
     // 玩家向下
-    const weaponBottomNextY = y + 2
+    const weaponBottomNextY = y + 2 > mapColumnCount - 1 ? mapColumnCount - 1 : y + 2
     // 玩家向右
-    const weaponRightNextX = x + 2
+    const weaponRightNextX = x + 2 > mapRowCount - 1 ? mapRowCount - 1 : x + 2
     // 玩家向左
-    const weaponLeftNextX = x - 2
+    const weaponLeftNextX = x - 2 < 0 ? 0 : x - 2
 
     let roundTileInfo: IRoundTile = {}
+
+    console.log(mapRowCount, weaponRightNextX, tileInfo[weaponRightNextX])
 
     Object.keys(ROUND_TILE_INFO).forEach(key => {
         if (!isNaN(Number(key))) {
@@ -134,28 +138,28 @@ export function ExaminePathWeapon (x: number, y: number, tileInfo: TileManager[]
                 examineTile = {
                     x,
                     y: weaponTopNextY,
-                    ...tileInfo[x][weaponTopNextY]
+                    ...tileInfo && tileInfo[x][weaponTopNextY]
                 }
                 break
             case ROUND_TILE_INFO.BOTTOM:
                 examineTile = {
                     x,
                     y: weaponBottomNextY,
-                    ...tileInfo[x][weaponBottomNextY]
+                    ...tileInfo && tileInfo[x][weaponBottomNextY]
                 }
                 break
             case ROUND_TILE_INFO.RIGHT:
                 examineTile = {
                     x: weaponRightNextX,
                     y,
-                    ...tileInfo[weaponRightNextX][y]
+                    ...tileInfo && tileInfo[weaponRightNextX][y]
                 }
                 break
             case ROUND_TILE_INFO.LEFT:
                 examineTile = {
                     x: weaponLeftNextX,
                     y,
-                    ...tileInfo[weaponLeftNextX][y]
+                    ...tileInfo && tileInfo[weaponLeftNextX][y]
                 }
                 break
         }
@@ -168,7 +172,7 @@ export function ExaminePathWeapon (x: number, y: number, tileInfo: TileManager[]
 }
 
 // 检测可行性
-export function ExamineFeasibility (playerRoundInfo: IRoundTile, weaponRoundInfo: IRoundTile) {
+export function ExamineFeasibility (playerRoundInfo: IRoundTile = {}, weaponRoundInfo: IRoundTile = {}) {
     const {x: doorX, y: doorY, state: doorState} = DataManager.Instance.door || {
         x: 0,
         y: 0,
@@ -177,52 +181,52 @@ export function ExamineFeasibility (playerRoundInfo: IRoundTile, weaponRoundInfo
     const enemies = DataManager.Instance.enemies.filter(enemy => enemy.state !== ENTITY_STATE_ENUM.DEATH)
     const bursts = DataManager.Instance.bursts.filter(burst => burst.state !== ENTITY_STATE_ENUM.DEATH)
 
-    let isFeasible = true
-
     console.log(playerRoundInfo, weaponRoundInfo)
 
-    Object.keys(playerRoundInfo).forEach(key => {
-        console.log(key, playerRoundInfo[key])
+    let status = true
+
+    Object.keys(playerRoundInfo).map(key => {
         // 检测门
-        if (playerRoundInfo[key] && playerRoundInfo[key]?.x === doorX && playerRoundInfo[key]?.y === doorY) {
-            return false
+        if (status && playerRoundInfo[key] && playerRoundInfo[key]?.x === doorX && playerRoundInfo[key]?.y === doorY && doorState !== ENTITY_STATE_ENUM.DEATH) {
+            status = false
         }
 
-        if (playerRoundInfo[key] && enemies.filter(enemy => (playerRoundInfo[key]?.x === enemy.x && playerRoundInfo[key]?.y === enemy.y)).length) {
-            return false
+        if (status && playerRoundInfo[key] && enemies.filter(enemy => (playerRoundInfo[key]?.x === enemy.x && playerRoundInfo[key]?.y === enemy.y)).length) {
+            status = false
         }
 
         // 检测地裂
-        if (playerRoundInfo[key] && bursts.filter(burst => (playerRoundInfo[key]?.x === burst.x && playerRoundInfo[key]?.y === burst.y)).length) {
-            return true
+        if (status && !playerRoundInfo[key].hasOwnProperty('type') && bursts.some(burst => (playerRoundInfo[key]?.x === burst.x && playerRoundInfo[key]?.y === burst.y))) {
+            status = true
+            return
         }
 
-        if (playerRoundInfo[key] && !playerRoundInfo[key]?.moveAble) {
-            return false
+        if (status && !playerRoundInfo[key].hasOwnProperty('type') || !playerRoundInfo[key]?.moveAble) {
+            status = false
         }
     })
 
-    Object.keys(weaponRoundInfo).forEach(key => {
-        console.log(key, weaponRoundInfo[key])
+    Object.keys(weaponRoundInfo).map(key => {
         // 检测门
-        if (weaponRoundInfo[key] && weaponRoundInfo[key]?.x === doorX && weaponRoundInfo[key]?.y === doorY) {
-            return false
+        if (status && weaponRoundInfo[key] && weaponRoundInfo[key]?.x === doorX && weaponRoundInfo[key]?.y === doorY && doorState !== ENTITY_STATE_ENUM.DEATH) {
+            status = false
         }
 
-        if (weaponRoundInfo[key] && enemies.filter(enemy => (weaponRoundInfo[key]?.x === enemy.x && weaponRoundInfo[key]?.y === enemy.y)).length) {
-            return false
+        if (status && weaponRoundInfo[key] && enemies.filter(enemy => (weaponRoundInfo[key]?.x === enemy.x && weaponRoundInfo[key]?.y === enemy.y)).length) {
+            status = false
         }
 
         // 检测地裂
-        if (weaponRoundInfo[key] && bursts.filter(burst => (weaponRoundInfo[key]?.x === burst.x && weaponRoundInfo[key]?.y === burst.y)).length) {
-            isFeasible = true
+        if (status && !weaponRoundInfo[key].hasOwnProperty('type') && bursts.some(burst => (weaponRoundInfo[key]?.x === burst.x && weaponRoundInfo[key]?.y === burst.y))) {
+            status = true
+            return
         }
 
-        if (weaponRoundInfo[key] && !weaponRoundInfo[key]?.turnAble) {
-            return false
+        if (status && weaponRoundInfo[key].hasOwnProperty('type') && !weaponRoundInfo[key]?.turnAble) {
+            status = false
         }
     })
 
-    return isFeasible
+    return status
 }
 
